@@ -1,9 +1,9 @@
 package examples
 
 import (
+	sdk "audit-client-sdk"
 	"context"
 
-	sdk "git.futuregamestudio.net/fgs/backend/audit-client-sdk/go"
 	"github.com/rs/zerolog"
 )
 
