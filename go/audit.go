@@ -67,7 +67,7 @@ func NewEmitter(brokers []string, topic string, sourceService string, logger zer
 // Emit publishes an audit event to Kafka
 func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	// Log transaction start
-	e.logger.Info().
+	e.logger.Debug().
 		Str("action", event.Action).
 		Str("user_id", event.UserID).
 		Str("source_service", event.SourceService).
@@ -132,7 +132,7 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 		return err
 	}
 
-	e.logger.Info().
+	e.logger.Debug().
 		Str("topic", e.topic).
 		Str("user_id", event.UserID).
 		Str("action", event.Action).
