@@ -13,6 +13,13 @@ func (e *Emitter) EmitFromHTTPRequest(ctx context.Context, req *http.Request, ac
 	traceID := e.extractTraceID(ctx, req)
 	ip := e.extractIP(req)
 
+	e.logger.Debug().
+		Str("action", action).
+		Str("user_id", userID).
+		Str("ip", ip).
+		Str("trace_id", traceID).
+		Msg("Creating audit event from HTTP request")
+
 	event := AuditEvent{
 		Timestamp:     time.Now(),
 		UserID:        userID,

@@ -3,6 +3,8 @@ package _go
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -39,6 +41,19 @@ type Emitter struct {
 	logger        zerolog.Logger
 }
 
+// recoverPanic is a reusable panic recovery function that logs stack traces
+// Usage: defer recoverPanic(logger, "operation_name")
+func recoverPanic(logger zerolog.Logger, operation string) {
+	if r := recover(); r != nil {
+		stack := debug.Stack()
+		logger.Error().
+			Str("operation", operation).
+			Str("panic", fmt.Sprintf("%v", r)).
+			Str("stack_trace", string(stack)).
+			Msg("Panic recovered")
+	}
+}
+
 // NewEmitter creates a new audit event emitter
 func NewEmitter(brokers []string, topic string, sourceService string, logger zerolog.Logger) *Emitter {
 	return &Emitter{
@@ -51,6 +66,14 @@ func NewEmitter(brokers []string, topic string, sourceService string, logger zer
 
 // Emit publishes an audit event to Kafka
 func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
+	// Log transaction start
+	e.logger.Info().
+		Str("action", event.Action).
+		Str("user_id", event.UserID).
+		Str("source_service", event.SourceService).
+		Str("result", string(event.Result)).
+		Msg("Starting audit transaction write")
+
 	// Set timestamp if not provided
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
@@ -59,9 +82,18 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	// Marshal event to JSON
 	data, err := json.Marshal(event)
 	if err != nil {
-		e.logger.Error().Err(err).Msg("Failed to marshal audit event")
+		e.logger.Error().
+			Err(err).
+			Str("action", event.Action).
+			Str("user_id", event.UserID).
+			Msg("Failed to marshal audit event")
 		return err
 	}
+
+	e.logger.Debug().
+		Int("payload_size", len(data)).
+		Str("action", event.Action).
+		Msg("Audit event marshaled successfully")
 
 	// Create Kafka writer
 	writer := &kafka_go.Writer{
@@ -84,22 +116,29 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 		},
 	}
 
+	e.logger.Debug().
+		Str("topic", e.topic).
+		Str("brokers", fmt.Sprintf("%v", e.brokers)).
+		Msg("Writing message to Kafka")
+
 	if err := writer.WriteMessages(ctx, msg); err != nil {
 		e.logger.Error().
 			Err(err).
 			Str("topic", e.topic).
 			Str("source_service", event.SourceService).
 			Str("action", event.Action).
-			Msg("Failed to emit audit event")
+			Str("user_id", event.UserID).
+			Msg("Failed to emit audit event to Kafka")
 		return err
 	}
 
-	e.logger.Debug().
+	e.logger.Info().
 		Str("topic", e.topic).
 		Str("user_id", event.UserID).
 		Str("action", event.Action).
 		Str("source_service", event.SourceService).
-		Msg("Audit event emitted")
+		Str("result", string(event.Result)).
+		Msg("Audit transaction written successfully")
 
 	return nil
 }
@@ -112,8 +151,19 @@ func (e *Emitter) EmitSync(ctx context.Context, event AuditEvent) error {
 // EmitAsync publishes an audit event asynchronously (fire and forget)
 func (e *Emitter) EmitAsync(ctx context.Context, event AuditEvent) {
 	go func() {
+		defer recoverPanic(e.logger, "EmitAsync")
+
+		e.logger.Debug().
+			Str("action", event.Action).
+			Str("user_id", event.UserID).
+			Msg("Starting async audit transaction write")
+
 		if err := e.Emit(ctx, event); err != nil {
-			e.logger.Warn().Err(err).Msg("Failed to emit audit event asynchronously")
+			e.logger.Warn().
+				Err(err).
+				Str("action", event.Action).
+				Str("user_id", event.UserID).
+				Msg("Failed to emit audit event asynchronously")
 		}
 	}()
 }
