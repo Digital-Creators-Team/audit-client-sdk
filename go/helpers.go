@@ -1,4 +1,4 @@
-package _go
+package sdk
 
 import (
 	"context"

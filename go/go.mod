@@ -1,4 +1,4 @@
-module audit-client-sdk
+module git.futuregamestudio.net/fgs/backend/audit-client-sdk
 
 go 1.25.4
 
