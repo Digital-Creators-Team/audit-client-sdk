@@ -119,6 +119,7 @@ func NewEmitterWithConfig(brokers []string, topic string, sourceService string, 
 func (e *Emitter) startBatchWorker() {
 	defer recoverPanic(e.logger, "startBatchWorker")
 	defer close(e.done)
+	e.logger.Info().Msg("starting batch audit worker")
 
 	ticker := time.NewTicker(e.flushInterval)
 	defer ticker.Stop()
