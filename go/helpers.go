@@ -14,6 +14,7 @@ func (e *Emitter) EmitFromHTTPRequest(ctx context.Context, req *http.Request, ac
 	ip := e.extractIP(req)
 
 	e.logger.Debug().
+		Ctx(ctx).
 		Str("action", action).
 		Str("user_id", userID).
 		Str("ip", ip).
