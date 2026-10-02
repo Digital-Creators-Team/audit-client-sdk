@@ -14,6 +14,7 @@ import (
 // AuditEvent represents an audit event to be published
 type AuditEvent struct {
 	Timestamp     time.Time              `json:"timestamp"`
+	TenantID      string                 `json:"tenant_id"`
 	UserID        string                 `json:"user_id"`
 	SessionID     string                 `json:"session_id,omitempty"`
 	SourceService string                 `json:"source_service"`
@@ -184,6 +185,7 @@ func (e *Emitter) Close() error {
 func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	// Log transaction start
 	e.logger.Debug().
+		Ctx(ctx).
 		Str("action", event.Action).
 		Str("user_id", event.UserID).
 		Str("source_service", event.SourceService).
@@ -199,6 +201,7 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		e.logger.Error().
+			Ctx(ctx).
 			Err(err).
 			Str("action", event.Action).
 			Str("user_id", event.UserID).
@@ -207,6 +210,7 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	}
 
 	e.logger.Debug().
+		Ctx(ctx).
 		Int("payload_size", len(data)).
 		Str("action", event.Action).
 		Msg("Audit event marshaled successfully")
@@ -222,12 +226,14 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	}
 
 	e.logger.Debug().
+		Ctx(ctx).
 		Str("topic", e.topic).
 		Str("brokers", fmt.Sprintf("%v", e.brokers)).
 		Msg("Writing message to Kafka")
 
 	if err := e.writer.WriteMessages(ctx, msg); err != nil {
 		e.logger.Error().
+			Ctx(ctx).
 			Err(err).
 			Str("topic", e.topic).
 			Str("source_service", event.SourceService).
@@ -238,6 +244,7 @@ func (e *Emitter) Emit(ctx context.Context, event AuditEvent) error {
 	}
 
 	e.logger.Debug().
+		Ctx(ctx).
 		Str("topic", e.topic).
 		Str("user_id", event.UserID).
 		Str("action", event.Action).
@@ -265,6 +272,7 @@ func (e *Emitter) EmitBatch(ctx context.Context, events []AuditEvent) error {
 		data, err := json.Marshal(event)
 		if err != nil {
 			e.logger.Error().
+				Ctx(ctx).
 				Err(err).
 				Str("action", event.Action).
 				Str("user_id", event.UserID).
@@ -287,12 +295,14 @@ func (e *Emitter) EmitBatch(ctx context.Context, events []AuditEvent) error {
 	}
 
 	e.logger.Debug().
+		Ctx(ctx).
 		Str("topic", e.topic).
 		Int("batch_size", len(msgs)).
 		Msg("Writing batch messages to Kafka")
 
 	if err := e.writer.WriteMessages(ctx, msgs...); err != nil {
 		e.logger.Error().
+			Ctx(ctx).
 			Err(err).
 			Str("topic", e.topic).
 			Int("batch_size", len(msgs)).
@@ -301,6 +311,7 @@ func (e *Emitter) EmitBatch(ctx context.Context, events []AuditEvent) error {
 	}
 
 	e.logger.Debug().
+		Ctx(ctx).
 		Str("topic", e.topic).
 		Int("batch_size", len(msgs)).
 		Msg("Batch audit transaction written successfully")
@@ -324,12 +335,14 @@ func (e *Emitter) EmitAsync(ctx context.Context, event AuditEvent) {
 	select {
 	case e.buffer <- event:
 		e.logger.Debug().
+			Ctx(ctx).
 			Str("action", event.Action).
 			Str("user_id", event.UserID).
 			Msg("Event added to buffer")
 	default:
 		// Buffer is full, log warning
 		e.logger.Warn().
+			Ctx(ctx).
 			Str("action", event.Action).
 			Str("user_id", event.UserID).
 			Msg("Buffer is full, event dropped")
